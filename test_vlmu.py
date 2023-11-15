@@ -9,7 +9,7 @@ import logging
 import os
 import argparse
 
-from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig, AutoTokenizer, PreTrainedTokenizer
 from string import Template
 from pathlib import Path
 from tqdm import tqdm
@@ -57,16 +57,19 @@ def main(args):
         bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.bfloat16,
     )
-    max_memory = {0: "23GiB", "cpu": "80GiB"}
+    max_memory = {0: "23GiB", "cpu": "30GiB"}
 
-    model = AutoModelForCausalLM.from_pretrained(llm,
-                                                quantization_config=bnb_config,
-                                                device_map={'':device},
-                                                trust_remote_code=True,
-                                                use_auth_token=False,
-                                                max_memory=max_memory)
+    model = AutoModelForCausalLM.from_pretrained(
+        llm,
+        quantization_config=bnb_config,
+        device_map={'':device},
+        trust_remote_code=True,
+        use_auth_token=False,
+        max_memory=max_memory
+    )
     model.config.use_cache = False
     tokenizer = AutoTokenizer.from_pretrained(llm)
+    # tokenizer = AutoTokenizer.from_pretrained("../.cache/huggingface/hub/models--aisingapore--sealion7b/snapshots/ce82ddd1bc1f0def5134579771c1403a52f9542f/", local_file=True)
 
     # Create empty lists to store data
     ids = []
@@ -80,8 +83,11 @@ def main(args):
     # Read JSONL files
     data_path = Path(folder)
     jsonl_files = data_path.glob("*.jsonl")
+    
+    # print("jsonl_files:", list(jsonl_files))
 
     for file in jsonl_files:
+        print(file)
         with open(file, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in lines:
@@ -89,7 +95,7 @@ def main(args):
                 ids.append(data["id"])
                 questions.append(data["question"])
                 choices = data["choices"]
-                gold.append(data["answer"])
+                gold.append(data.get("answer", ""))
                 try:
                     choices_A.append(choices[0])
                 except:
@@ -111,6 +117,7 @@ def main(args):
                 except:
                     choices_E.append('')
 
+    print("questions:", questions[:10])
     # Create a DataFrame
     df = pd.DataFrame({
         "id": ids,
@@ -124,10 +131,9 @@ def main(args):
     })
     logging.info(df.head())
 
-    preamble = \
-        'Chỉ đưa ra chữ cái đứng trước câu trả lời đúng (A, B, C, D hoặc E) của câu hỏi trắc nghiệm sau: '
+    preamble = 'Only provide the letter corresponding to the correct answer (A, B, C, D, or E) for the following multiple-choice question, answer must not empty:'
 
-    template = Template('$preamble\n\n$prompt\n\n $a\n $b\n $c\n $d\n $e\nĐáp án:')
+    template = Template('$preamble\n\nQuestion: $prompt\n\n $a\n $b\n $c\n $d\n $e\n\nAnswer:')
 
     def format_input(df, idx):
         prompt = df.loc[idx, 'prompt']
@@ -167,7 +173,7 @@ def main(args):
             outputs = model.generate(**inputs, max_new_tokens=1)
         else:
             inputs = tokenizer(format_input(df, idx), return_tensors="pt").to(device)
-            outputs = model.generate(**inputs, max_new_tokens=1)
+            outputs = model.generate(**inputs, max_new_tokens=1, pad_token_id=tokenizer.eos_token_id)
         answer = tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
         last_element = answer[-1]
@@ -191,9 +197,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Your script description here")
 
     # Add command-line arguments
-    parser.add_argument("--llm", type=str, default="bigscience/bloomz-7b1", help="Specify the llm value (default: bigscience/bloomz-7b1)")
+    parser.add_argument("--llm", type=str, default="teknium/OpenHermes-2.5-Mistral-7B", help="Specify the llm value (default: bigscience/bloomz-7b1)")
+    # parser.add_argument("--llm", type=str, default="aisingapore/sealion7b", help="Specify the llm value (default: bigscience/bloomz-7b1)")
     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu", help="Specify the device (default: 'cuda:0')")
-    parser.add_argument("--folder", type=str, default="data/", help="Specify the folder data")
+    parser.add_argument("--folder", type=str, default="data/vmlu", help="Specify the folder data")
 
     # Parse the command-line arguments6
     args = parser.parse_args()
