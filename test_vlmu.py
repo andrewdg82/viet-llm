@@ -57,11 +57,11 @@ def main(args):
         bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.bfloat16,
     )
-    max_memory = {0: "23GiB", "cpu": "30GiB"}
+    max_memory = {0: "40GiB", "cpu": "80GiB"}
 
     model = AutoModelForCausalLM.from_pretrained(
         llm,
-        quantization_config=bnb_config,
+        # quantization_config=bnb_config,
         device_map={'':device},
         trust_remote_code=True,
         use_auth_token=False,
@@ -131,9 +131,10 @@ def main(args):
     })
     logging.info(df.head())
 
-    preamble = 'Only provide the letter corresponding to the correct answer (A, B, C, D, or E) for the following multiple-choice question, answer must not empty:'
+    preamble = \
+        'Chỉ đưa ra chữ cái đứng trước câu trả lời đúng (A, B, C, D hoặc E) của câu hỏi trắc nghiệm sau: '
 
-    template = Template('$preamble\n\nQuestion: $prompt\n\n $a\n $b\n $c\n $d\n $e\n\nAnswer:')
+    template = Template('$preamble\n\n$prompt\n\n $a\n $b\n $c\n $d\n $e\nĐáp án:')
 
     def format_input(df, idx):
         prompt = df.loc[idx, 'prompt']

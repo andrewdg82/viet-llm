@@ -3,10 +3,14 @@ from tqdm import tqdm
 import random
 import numpy as np
 import logging
+import multiprocessing
+from typing import List
+from joblib import Parallel, delayed
+from functools import reduce
+import operator
 
 def load_spoken_norm_data():
     print(f"Loading spoken_norm_assignment dataset")
-    data = []
     ds = load_dataset("VietAI/spoken_norm_assignment")
 
     questions = [
@@ -24,8 +28,8 @@ def load_spoken_norm_data():
         "Normalize this text to spoken form: ",
     ]
 
-
-    for item in tqdm(ds["train"]):
+    def create_sample(item: dict):
+        samples = []
         for spk_word, wrt_word in zip(item["src"], item["tgt"]):
             if spk_word != wrt_word:
                 d = {
@@ -36,10 +40,17 @@ def load_spoken_norm_data():
                     "input": random.choice(questions2) + wrt_word if np.random.rand() > 0.5 else wrt_word,
                     "target": spk_word
                 }
-                data.append(d)
-                data.append(d2)
-    print(data[0])
-    return Dataset.from_list(data)
+                samples.append(d)
+                samples.append(d2)
+
+        return samples
+    
+    data = []
+    for item in tqdm(ds["train"]):
+        data += create_sample(item)
+
+    ds = Dataset.from_list(data)
+    return ds
 
 def load_xp3_dataset():
     print(f"Loading bigscience/xP3 dataset")
@@ -62,10 +73,10 @@ def load_mfag_vi_dataset():
     print(ds[0])
     return ds
 
-def load_news_corpus_dataset():
-    ds = load_dataset("hieunguyen1053/binhvq-news-corpus")
-    print(ds)
-    data = []
+def load_news_corpus_dataset(percent: float):
+    print(f"Loading news_corpus dataset")
+
+    ds = load_dataset("hieunguyen1053/binhvq-news-corpus", split=f"train[{percent}%:{percent + 10}%]")
     summary_questions = [
         "Tóm tắt đoạn văn sau: ",
         "Tóm tắt đoạn sau: ",
@@ -87,7 +98,7 @@ def load_news_corpus_dataset():
         "Đoạn văn sau nói về lĩnh vực gì: "
     ]
 
-    for item in tqdm(ds["train"]):
+    def create_sample(item: dict)->List[dict]:
         content = item["content"]
         content = content.split("\n")[:-3]
         item["content"] = "\n".join(content)
@@ -107,38 +118,59 @@ def load_news_corpus_dataset():
             "input": random.choice(classify_question) + item["title"] if np.random.rand() > 0.5 else item["summary"],
             "target": item["category"]
         }
-        data += [sample_write_content, sample_summary, sample_classify, sample_classify2]
-
+        return [sample_write_content, sample_summary, sample_classify, sample_classify2]
+    
+    data = []
+    for item in tqdm(ds):
+        data += create_sample(item)
+    
     ds = Dataset.from_list(data)
     return ds
 
-def load_json(filepath: str):
+def load_MBZUAI_BactrianX_dataset():
+    print(f"Loading MBZUAI_BactrianX dataset")
+    ds = load_dataset("MBZUAI/Bactrian-X", "vi")
+    ds = ds["train"].rename_column("output", "target")
+    ds = ds.rename_column("input", "context")
+    ds = ds.rename_column("instruction", "input")
+    ds = ds.remove_columns("id")
+    print(ds[0])
+    return ds
+
+def load_json(filepath: str="data/data_v1_426k.json"):
     print(f"Loading dataset from json file: {filepath}")
     ds = load_dataset("json", data_files=filepath)
     ds = ds["train"].rename_column("question", "input")
     ds = ds.rename_column("answer", "target")
-    ds = ds.filter(lambda item: len(item["input"].split()) > 3 and len(item["target"].split()) > 2)
     return ds
 
 def clean_text(text: str) -> str:
     return text
 
-def create_dataset(save_filepath: str):
+def create_dataset(save_dir: str):
     list_dataset = [
-        load_spoken_norm_data(),
-        load_xp3_dataset(),
-        load_mfag_vi_dataset(),
-        load_json("data/data_v1_426k.json"),
-        load_news_corpus_dataset()
+        # load_spoken_norm_data,
+        # load_xp3_dataset,
+        # load_mfag_vi_dataset,
+        # load_json,
+        load_news_corpus_dataset,
+        # load_MBZUAI_BactrianX_dataset
     ]
-    print(list_dataset)
-    concat_ds = concatenate_datasets(list_dataset)
-    print(concat_ds)
-    concat_ds = concat_ds.filter(lambda item: len(item["input"].split()) > 3 and len(item["target"].split()) > 2)
-    print(concat_ds)
 
-    concat_ds.to_csv(save_filepath)
+    for func in list_dataset:
+        print(func.__name__)
+        if func.__name__ == "load_news_corpus_dataset":
+            for percent in range(30, 100, 10):
+                ds = func(percent)
+                ds = ds.filter(lambda item: item["input"] is not None and item["target"] is not None and len(item["input"].split()) > 3 and len(item["target"].split()) > 2)
+                ds.to_csv(f"{save_dir}/{func.__name__}_{percent}.{percent+10}.csv")
+                del ds
+        else:
+            ds = func()
+            ds = ds.filter(lambda item: item["input"] is not None and item["target"] is not None)
+            ds = ds.filter(lambda item: len(item["input"].split()) > 3 and len(item["target"].split()) > 2)
+            ds.to_csv(f"{save_dir}/{func.__name__}.csv")
 
 
 if __name__=="__main__":
-    create_dataset("data/data.csv")
+    create_dataset("data")
