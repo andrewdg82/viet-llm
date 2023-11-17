@@ -4,7 +4,7 @@ import time
 import logging  
 import argparse
 from typing import List, Union
-from transformers import AutoModelForCausalLM, AutoTokenizer 
+from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
 from peft import PeftModel, AutoPeftModelForCausalLM
 
 class VietLLMGenerator:
