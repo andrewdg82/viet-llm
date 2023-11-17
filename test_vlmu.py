@@ -197,14 +197,10 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Your script description here")
 
-    # Add command-line arguments
     parser.add_argument("--llm", type=str, default="teknium/OpenHermes-2.5-Mistral-7B", help="Specify the llm value (default: bigscience/bloomz-7b1)")
-    # parser.add_argument("--llm", type=str, default="aisingapore/sealion7b", help="Specify the llm value (default: bigscience/bloomz-7b1)")
     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu", help="Specify the device (default: 'cuda:0')")
     parser.add_argument("--folder", type=str, default="data/vmlu", help="Specify the folder data")
 
-    # Parse the command-line arguments6
     args = parser.parse_args()
 
-    # Call the main function with the parsed arguments
     main(args)
