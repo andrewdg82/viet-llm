@@ -28,8 +28,8 @@ class VietLLMGenerator:
                 trust_remote_code=True
             )
 
-        logging.info(f"Load tokenizer: {base_model}")
-        tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
+        logging.info(f"Load tokenizer: {model}")
+        tokenizer = AutoTokenizer.from_pretrained(model, trust_remote_code=True)
         # tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
 
