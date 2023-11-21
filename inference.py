@@ -1,11 +1,10 @@
-import os
 import torch
 import time
 import logging  
 import argparse
 from typing import List, Union
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
-from peft import PeftModel, AutoPeftModelForCausalLM
+from peft import AutoPeftModelForCausalLM
 
 class VietLLMGenerator:
     def __init__(self, model: str, quantized: bool=True, base_dtype: torch.dtype=None, device: str="cpu"):
@@ -15,7 +14,7 @@ class VietLLMGenerator:
                 model,
                 low_cpu_mem_usage=True,
                 return_dict=True,
-                torch_dtype=base_dtype if base_dtype not None else None
+                torch_dtype=base_dtype if base_dtype is not None else None,
                 device_map=device
             )
         else:
@@ -24,13 +23,13 @@ class VietLLMGenerator:
                 return_dict=True,
                 low_cpu_mem_usage=True,
                 device_map=device,
-                torch_dtype=base_dtype if base_dtype not None
+                torch_dtype=base_dtype if base_dtype is not None else None,
                 trust_remote_code=True
             )
 
         logging.info(f"Load tokenizer: {model}")
         tokenizer = AutoTokenizer.from_pretrained(model, trust_remote_code=True)
-        # tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
 
         self.model = model.eval()
@@ -44,9 +43,9 @@ class VietLLMGenerator:
             top_k=1,
             temperature=temperature,
             max_new_tokens=max_new_tokens,
-            pad_token_id=tokenizer.eos_token_id
+            # pad_token_id=tokenizer.eos_token_id
         )
-        outputs = model.generate(**input, generation_config=self.generation_config)
+        outputs = self.model.generate(**input, generation_config=self.generation_config)
         output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
         logging.info(f"Input: {input}")
