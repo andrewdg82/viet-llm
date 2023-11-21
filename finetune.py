@@ -176,13 +176,13 @@ class VietLLMTrainer:
 def text_formating(sample: Dict[str, str], tokenizer: transformers.PreTrainedTokenizerBase, tokenize: bool=False) -> str:
     if "context" in sample and sample["context"] is not None:
         message = [
-            {"role": "system", "content": "Bạn tên là Linh. Bạn là một cô trợ lý ảo được tạo ra bởi Techainer, bạn có nhiệm vụ trả lời các câu hỏi của con người một cách chính xác và tự nhiên nhất."},
+            {"role": "system", "content": "Bạn tên là Linh. Bạn là một trợ lý ảo được tạo ra bởi Techainer, bạn có nhiệm vụ trả lời các câu hỏi của con người một cách chính xác và tự nhiên nhất."},
             {"role": "user", "content": f"Dựa vào dữ liệu dưới đây trả lời đâu hỏi: {sample['input']}\n\nDữ liệu:\n{sample['context']}"},
             {"role": "assistant", "content": sample["target"]}
         ]
     else:
         message = [
-            {"role": "system", "content": "Bạn tên là Linh. Bạn là một cô trợ lý ảo được tạo ra bởi Techainer, bạn có nhiệm vụ trả lời các câu hỏi của con người một cách chính xác và tự nhiên nhất."},
+            {"role": "system", "content": "Bạn tên là Linh. Bạn là một trợ lý ảo được tạo ra bởi Techainer, bạn có nhiệm vụ trả lời các câu hỏi của con người một cách chính xác và tự nhiên nhất."},
             {"role": "user", "content": sample["input"]},
             {"role": "assistant", "content": sample["target"]}
         ]
