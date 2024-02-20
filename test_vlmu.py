@@ -53,7 +53,7 @@ def main(args):
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
-        bnb_4bit_use_double_quant=True,
+        bnb_4bit_use_double_quant=False,
         bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.bfloat16,
     )
@@ -64,12 +64,12 @@ def main(args):
         # quantization_config=bnb_config,
         device_map={'':device},
         trust_remote_code=True,
-        use_auth_token=False,
-        max_memory=max_memory
+        use_auth_token=True,
+        max_memory=max_memory,
+        torch_dtype=torch.bfloat16
     )
     model.config.use_cache = False
     tokenizer = AutoTokenizer.from_pretrained(llm)
-    # tokenizer = AutoTokenizer.from_pretrained("../.cache/huggingface/hub/models--aisingapore--sealion7b/snapshots/ce82ddd1bc1f0def5134579771c1403a52f9542f/", local_file=True)
 
     # Create empty lists to store data
     ids = []
@@ -132,9 +132,9 @@ def main(args):
     logging.info(df.head())
 
     preamble = \
-        'Chỉ đưa ra chữ cái đứng trước câu trả lời đúng (A, B, C, D hoặc E) của câu hỏi trắc nghiệm sau: '
+        'Chỉ đưa ra chữ cái đứng trước câu trả lời đúng (A, B, C, D hoặc E) không được bỏ trống của câu hỏi trắc nghiệm sau: '
 
-    template = Template('$preamble\n\n$prompt\n\n $a\n $b\n $c\n $d\n $e\nĐáp án:')
+    template = Template('$preamble\n\n$prompt\n\n $a\n $b\n $c\n $d\n $e\n\nĐáp án:')
 
     def format_input(df, idx):
         prompt = df.loc[idx, 'prompt']
@@ -176,9 +176,9 @@ def main(args):
             inputs = tokenizer(format_input(df, idx), return_tensors="pt").to(device)
             outputs = model.generate(**inputs, max_new_tokens=1, pad_token_id=tokenizer.eos_token_id)
         answer = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-
         last_element = answer[-1]
         answer = last_element.split()[-1]
+        print(answer)
         answers.append(answer)
 
         if answer.strip() == df.loc[idx, 'gold'].strip():

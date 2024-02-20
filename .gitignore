@@ -1,4 +1,6 @@
 data/*
 logs/*
 wandb/*
+*.pyc
+test*
 finetune_OpenHermes_2.5_prompt_v1_bf16_no_group_by_len_to_iterable_dataset/*
