@@ -6,7 +6,7 @@ import huggingface_hub
 from transformers import AutoModelForCausalLM, AutoTokenizer 
 from peft import PeftModel
 
-def merge_and_unload(base_model: str, adapter_model: str, upload_name: str, base_dtype: torch.dtype=None, device: str="cpu"):
+def merge_and_unload(base_model: str, adapter_model: str, upload_name: str, base_dtype: torch.dtype=torch.bfloat16, device: str="cpu"):
     logging.info(f"Load base model: {base_model}")
     base_model_reload = AutoModelForCausalLM.from_pretrained(
         base_model,
@@ -14,7 +14,7 @@ def merge_and_unload(base_model: str, adapter_model: str, upload_name: str, base
         low_cpu_mem_usage=True,
         device_map=device,
         trust_remote_code=True,
-        torch_dtype=base_dtype if base_dtype is not None else None
+        torch_dtype=base_dtype if base_dtype is not None else torch.float32
     )
     logging.info(f"Load adapter model: {adapter_model}")
     model = PeftModel.from_pretrained(base_model_reload, adapter_model, device_map=device)
@@ -32,8 +32,8 @@ def merge_and_unload(base_model: str, adapter_model: str, upload_name: str, base
         upload_name = adapter_model
 
     logging.info(f"Upload model")
-    model.push_to_hub(upload_name, use_temp_dir=False)
-    tokenizer.push_to_hub(upload_name, use_temp_dir=False)
+    model.push_to_hub(upload_name)
+    tokenizer.push_to_hub(upload_name)
 
     logging.info(f"All done, model pushed to: {upload_name}")
 
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cpu")
 
     args = parser.parse_args()
-
+    print(args)
     # huggingface_hub.login()
 
     merge_and_unload(**vars(args))
